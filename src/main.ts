@@ -18,6 +18,7 @@ import * as exec from '@actions/exec';
 import { parseScript } from './script-parser';
 import { getChannelId } from './channel-id-mapper';
 import { accessSync, constants } from 'fs';
+import { log } from 'console';
 
 async function run() {
   try {
@@ -190,51 +191,68 @@ async function run() {
             cwd: workingDirectory,
           });
         }
-      } catch (error) {
+      } catch (error) {  
         core.setFailed(error instanceof Error ? error.message : (error as string));
       }
       console.log(`::endgroup::`);
     }
 
-    // launch an emulator
-    await launchEmulator(
-      apiLevel,
-      target,
-      arch,
-      profile,
-      cores,
-      ramSize,
-      heapSize,
-      sdcardPathOrSize,
-      diskSize,
-      avdName,
-      forceAvdCreation,
-      emulatorBootTimeout,
-      emulatorOptions,
-      disableAnimations,
-      disableSpellchecker,
-      disableLinuxHardwareAcceleration,
-      enableHardwareKeyboard
-    );
+    console.log(`::group::Launch Emulator and execute scripts`);
 
-    // execute the custom script
-    try {
-      // move to custom working directory if set
-      if (workingDirectory) {
-        process.chdir(workingDirectory);
+    let runTimes = 4;
+    let runSuccess = false;
+
+    while (runTimes > 0 && !runSuccess) {
+      // execute the custom script
+      try {
+        console.log('Start to launchEmulator and execute scripts: ', runTimes);
+        
+        // launch an emulator
+        await launchEmulator(
+          apiLevel,
+          target,
+          arch,
+          profile,
+          cores,
+          ramSize,
+          heapSize,
+          sdcardPathOrSize,
+          diskSize,
+          avdName,
+          forceAvdCreation,
+          emulatorBootTimeout,
+          emulatorOptions,
+          disableAnimations,
+          disableSpellchecker,
+          disableLinuxHardwareAcceleration,
+          enableHardwareKeyboard
+        );
+        // move to custom working directory if set
+        if (workingDirectory && runTimes == 3) {
+          // only need to create directory at the first time
+          process.chdir(workingDirectory);
+        }
+        for (const script of scripts) {
+          // use array form to avoid various quote escaping problems
+          // caused by exec(`sh -c "${script}"`)
+          await exec.exec('sh', ['-c', script]);
+          runSuccess = true;
+          console.log('run successful now');
+          runTimes -= 1;
+        }
+      } catch (error) {
+        console.log('Error happens while launchEmulator and exec script: ', error);
+        runSuccess = false;
+        runTimes -= 1;
       }
-      for (const script of scripts) {
-        // use array form to avoid various quote escaping problems
-        // caused by exec(`sh -c "${script}"`)
-        await exec.exec('sh', ['-c', script]);
-      }
-    } catch (error) {
-      core.setFailed(error instanceof Error ? error.message : (error as string));
     }
+
+    console.log(`::endgroup::`);
 
     // finally kill the emulator
     await killEmulator();
   } catch (error) {
+    console.log('Error happens in the whole process: ', error);
     // kill the emulator so the action can exit
     await killEmulator();
     core.setFailed(error instanceof Error ? error.message : (error as string));
