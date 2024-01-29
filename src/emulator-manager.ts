@@ -24,7 +24,11 @@ export async function launchEmulator(
   enableHardwareKeyboard: boolean
 ): Promise<void> {
   try {
+    console.log(`Restart adb server process.`);
+    await exec.exec(`adb kill-server`);
+    await exec.exec(`adb start-server`);
     console.log(`::group::Launch Emulator`);
+
     // create a new AVD if AVD directory does not already exist or forceAvdCreation is true
     const avdPath = `${process.env.ANDROID_AVD_HOME}/${avdName}.avd`;
     if (!fs.existsSync(avdPath) || forceAvdCreation) {
