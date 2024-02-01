@@ -191,7 +191,7 @@ async function run() {
             cwd: workingDirectory,
           });
         }
-      } catch (error) {  
+      } catch (error) {
         core.setFailed(error instanceof Error ? error.message : (error as string));
       }
       console.log(`::endgroup::`);
@@ -206,7 +206,7 @@ async function run() {
       // execute the custom script
       try {
         console.log('Start to launchEmulator and execute scripts: ', runTimes);
-        
+
         // launch an emulator
         await launchEmulator(
           apiLevel,
